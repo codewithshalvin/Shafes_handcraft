@@ -1,0 +1,116 @@
+/* Container for product details */
+.product-details-container {
+  display: flex;
+  justify-content: space-between;
+  padding: 1.5rem;  /* Reduced padding for outer box */
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Product Image */
+/* Product Image */
+.product-image img {
+  width: 100%;  /* Image will take full available width of its container */
+  height: auto; /* Maintain aspect ratio */
+  max-width: 450px;  /* Set a maximum width */
+  max-height: 300px;  /* Optional: Limit the height of the image */
+  border-radius: 10px;  /* Rounded corners for the image */
+  object-fit: cover;  /* Ensures the image covers the box without distortion */
+}
+
+
+/* Product Info Section */
+.product-info {
+  flex: 1;
+  padding-left: 2rem;
+}
+
+/* Product Title */
+.product-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #333;
+}
+
+/* Product Description */
+.product-description {
+  font-size: 1rem;
+  color: #666;
+  margin-top: 1rem;
+}
+
+/* Product Price */
+.product-price {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ff6347;
+  margin-top: 1rem;
+}
+
+/* Special Request Section */
+.special-request {
+  margin-top: 1.5rem;
+}
+
+.special-request label {
+  font-weight: bold;
+  color: #333;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.special-request textarea {
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  resize: vertical;
+}
+
+/* Buttons */
+.actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.btn {
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  width: 150px;
+}
+
+.add-to-cart {
+  background-color: #ff6347;
+  color: white;
+}
+
+.add-to-cart:hover {
+  background-color: #e53e3e;
+}
+
+.add-to-wishlist {
+  background-color: #ff99b3;
+  color: white;
+}
+
+.add-to-wishlist:hover {
+  background-color: #ff80a6;
+}
+
+.live-customize {
+  background-color: #4caf50;
+  color: white;
+}
+
+.live-customize:hover {
+  background-color: #45a049;
+}

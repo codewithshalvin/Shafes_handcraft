@@ -1,0 +1,319 @@
+/* Category Cards CSS - Matching the design */
+.categories-section {
+  background: linear-gradient(135deg, #fdf2f8 0%, #f3e8ff 50%, #ddd6fe 100%);
+  min-height: 100vh;
+  padding: 40px 20px;
+  position: relative;
+}
+
+.categories-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 30px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.category-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 24px;
+  padding: 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Different pastel background gradients for cards */
+.category-card:nth-child(3n+1) {
+  background: linear-gradient(135deg, rgba(254, 240, 138, 0.3), rgba(251, 191, 36, 0.2));
+}
+
+.category-card:nth-child(3n+2) {
+  background: linear-gradient(135deg, rgba(254, 202, 202, 0.3), rgba(252, 165, 165, 0.2));
+}
+
+.category-card:nth-child(3n+3) {
+  background: linear-gradient(135deg, rgba(196, 181, 253, 0.3), rgba(167, 139, 250, 0.2));
+}
+
+.category-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: left 0.6s ease;
+}
+
+.category-card:hover::before {
+  left: 100%;
+}
+
+.category-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.12),
+    0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.category-image-container {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  border-radius: 20px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.category-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+  border-radius: 20px;
+}
+
+.category-card:hover img {
+  transform: scale(1.05);
+}
+
+.category-content {
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
+.category-card h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 20px 0;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  transition: color 0.3s ease;
+}
+
+.category-card:hover h3 {
+  color: #4c1d95;
+}
+
+.view-button {
+  background: linear-gradient(135deg, #a7f3d0 0%, #6ee7b7 100%);
+  color: #047857;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 25px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 2px 10px rgba(110, 231, 183, 0.3);
+  position: relative;
+  overflow: hidden;
+  min-width: 120px;
+}
+
+.view-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.view-button:hover::before {
+  left: 100%;
+}
+
+.view-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 6px 20px rgba(110, 231, 183, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #86efac 0%, #4ade80 100%);
+}
+
+.view-button:active {
+  transform: translateY(0);
+}
+
+/* Wishlist heart icon */
+.wishlist-heart {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.category-card:hover .wishlist-heart {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.wishlist-heart:hover {
+  background: #fecaca;
+  transform: scale(1.1);
+}
+
+.heart-icon {
+  width: 20px;
+  height: 20px;
+  color: #dc2626;
+}
+
+/* Category badge for new items */
+.category-badge {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.3s ease 0.1s;
+}
+
+.category-card:hover .category-badge {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Loading state */
+.category-card.loading {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.8) 0%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.8) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Empty state */
+.categories-empty {
+  text-align: center;
+  color: #64748b;
+  padding: 60px 20px;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  opacity: 0.4;
+  margin-bottom: 20px;
+}
+
+.empty-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #2d3748;
+}
+
+.empty-subtitle {
+  font-size: 1rem;
+  opacity: 0.7;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .categories-container {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+  }
+  
+  .categories-section {
+    padding: 30px 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .categories-container {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+  }
+  
+  .category-image-container {
+    height: 220px;
+  }
+  
+  .category-card {
+    padding: 20px;
+  }
+  
+  .category-card h3 {
+    font-size: 1.3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .categories-container {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .categories-section {
+    padding: 20px 12px;
+  }
+  
+  .category-image-container {
+    height: 140px;
+  }
+  
+  .category-card {
+    padding: 16px;
+  }
+  
+  .category-card h3 {
+    font-size: 1.2rem;
+    margin-bottom: 16px;
+  }
+}

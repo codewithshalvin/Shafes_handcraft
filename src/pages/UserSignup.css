@@ -1,0 +1,140 @@
+/* UserSignup.css */
+
+/* Container with gradient background */
+.signup-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(to right, #dbeafe, #e0e7ff, #f3e8ff);
+}
+
+/* Main signup form card */
+.signup-card {
+  width: 100%;
+  max-width: 42rem; /* max-w-2xl equivalent */
+  background-color: white;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border-radius: 1rem;
+  padding: 2rem;
+}
+
+/* Form title */
+.signup-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #1f2937;
+}
+
+/* Form grid layout */
+.signup-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+/* Two-column layout for medium screens and up */
+@media (min-width: 768px) {
+  .signup-form {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Full-width form fields */
+.form-field-full {
+  grid-column: span 2;
+}
+
+/* Form field container */
+.form-field {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Form labels */
+.form-label {
+  display: block;
+  color: #4b5563;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+/* Form inputs */
+.form-input {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  transition: all 0.2s ease-in-out;
+  outline: none;
+}
+
+.form-input:focus {
+  ring: 2px;
+  ring-color: #60a5fa;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+}
+
+.form-input::placeholder {
+  color: #9ca3af;
+}
+
+/* Submit button */
+.submit-button {
+  width: 100%;
+  padding: 0.75rem 0;
+  background-color: #2563eb;
+  color: white;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+  font-size: 1rem;
+}
+
+.submit-button:hover {
+  background-color: #1d4ed8;
+}
+
+/* Sign in link section */
+.signin-link-container {
+  grid-column: span 2;
+  text-align: center;
+  color: #4b5563;
+  margin-top: 1rem;
+}
+
+.signin-link {
+  color: #2563eb;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.signin-link:hover {
+  text-decoration: underline;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767px) {
+  .signup-card {
+    margin: 1rem;
+    padding: 1.5rem;
+  }
+  
+  .signup-title {
+    font-size: 1.5rem;
+  }
+  
+  .form-field-full {
+    grid-column: span 1;
+  }
+  
+  .signin-link-container {
+    grid-column: span 1;
+  }
+}

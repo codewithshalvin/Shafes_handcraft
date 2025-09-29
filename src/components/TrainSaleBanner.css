@@ -1,0 +1,96 @@
+/* TrainSaleBanner.css */
+.train-banner {
+  background: linear-gradient(90deg, #caeaffff 0%, #9df2ffff 100%);
+  color: white;
+  overflow: hidden;
+  position: relative;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2px 15px rgba(0,0,0,0.2);
+  z-index: 1000;
+}
+
+.train-track {
+  display: flex;
+  animation: trainMove 25s linear infinite;
+  will-change: transform;
+}
+
+.train-car {
+  background: #063478ff;
+  color: white;
+  padding: 8px 20px;
+  margin-right: 5px;
+  border-radius: 15px;
+  font-weight: bold;
+  font-size: 14px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  border: 2px solid #ea73b7ff;
+}
+
+.train-car.engine {
+  background: #eeffb0ff;
+  border-color: #f6ffb8ff;
+  font-size: 20px;
+}
+
+.train-car:not(.engine):before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 3px;
+  background: #95a5a6;
+  border-radius: 2px;
+}
+
+@keyframes trainMove {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.train-banner:hover .train-track {
+  animation-play-state: paused;
+}
+
+/* Add smoke effect */
+.train-banner::after {
+  content: '💨💨💨';
+  position: absolute;
+  top: -10px;
+  left: 50px;
+  font-size: 12px;
+  opacity: 0.6;
+  animation: smoke 2s ease-in-out infinite;
+}
+
+@keyframes smoke {
+  0%, 100% { opacity: 0.3; transform: translateY(0); }
+  50% { opacity: 0.8; transform: translateY(-5px); }
+}
+
+@media (max-width: 768px) {
+  .train-banner {
+    height: 40px;
+  }
+  
+  .train-car {
+    padding: 6px 15px;
+    font-size: 12px;
+  }
+  
+  .train-car.engine {
+    font-size: 16px;
+  }
+}

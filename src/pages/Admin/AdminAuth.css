@@ -1,0 +1,51 @@
+.admin-auth-container {
+  text-align: center;
+  padding: 50px;
+  background: linear-gradient(to right, #ffecd2, #fcb69f);
+  height: 100vh;
+}
+
+.admin-auth-title {
+  font-size: 24px;
+  margin-bottom: 20px;
+  font-weight: bold;
+}
+
+.admin-auth-form {
+  display: inline-block;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.admin-auth-input {
+  display: block;
+  margin: 10px auto;
+  padding: 10px;
+  width: 250px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.admin-auth-button {
+  background: #ff7eb3;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  margin-top: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.3s;
+}
+
+.admin-auth-button:hover {
+  background: #ff5277;
+}
+
+.admin-auth-message {
+  margin-top: 15px;
+  font-size: 14px;
+  color: green;
+}
