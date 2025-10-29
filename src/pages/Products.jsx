@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useCart } from "../context/CartContext"; // Import your cart context
-import "./products.css";
+import "./Products.css";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);

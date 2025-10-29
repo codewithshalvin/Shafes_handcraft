@@ -14,3 +14,6 @@ export const fetchProducts = () => API.get("/products");
 export const addProduct = (data) => API.post("/products", data);
 export const updateProduct = (id, data) => API.put(`/products/${id}`, data);
 export const deleteProduct = (id) => API.delete(`/products/${id}`);
+
+// Often bought products (aggregated from orders)
+export const fetchTopBoughtProducts = (limit = 8) => API.get(`/api/products/top-bought?limit=${limit}`);

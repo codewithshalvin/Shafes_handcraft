@@ -1,0 +1,404 @@
+/* Enhanced MoreDropdown with Vertical Language Submenu */
+.more-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 300px;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(255, 255, 255, 0.95) 100%
+  );
+  backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  z-index: 1000;
+  animation: dropdownSlideIn 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  overflow: visible;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* User Section */
+.dropdown-user-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(135deg, #ff6ec7, #4facfe);
+  color: white;
+  margin: 0;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.user-name {
+  font-weight: 600;
+  font-size: 1rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.user-email {
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+/* Dropdown Item Wrapper - For items with submenus */
+.dropdown-item-wrapper {
+  position: relative;
+}
+
+/* Language Item with Down Arrow */
+.language-item {
+  position: relative;
+}
+
+.dropdown-arrow-down {
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: transform 0.3s ease;
+}
+
+.dropdown-arrow-down.rotated {
+  transform: rotate(180deg);
+}
+
+/* Vertical Language Submenu - Appears Below Parent */
+.language-submenu-vertical {
+  position: relative;
+  width: 100%;
+  background: linear-gradient(
+    135deg,
+    rgba(240, 248, 255, 0.95) 0%,
+    rgba(248, 250, 252, 0.9) 100%
+  );
+  border: 1px solid rgba(79, 172, 254, 0.2);
+  border-radius: 12px;
+  margin: 8px 0;
+  padding: 8px;
+  animation: submenuSlideDown 0.3s ease-out;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+@keyframes submenuSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 200px;
+  }
+}
+
+/* Language Grid - 2 columns for better space usage */
+.language-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.language-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.language-option:hover {
+  background: linear-gradient(135deg, rgba(79, 172, 254, 0.1), rgba(255, 110, 199, 0.05));
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(79, 172, 254, 0.2);
+}
+
+.language-flag {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.language-name {
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Logout Item Special Styling */
+.logout-item {
+  color: #dc3545;
+  border-top: 1px solid rgba(220, 53, 69, 0.1);
+  margin-top: 4px;
+}
+
+.logout-item:hover {
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.1), rgba(220, 53, 69, 0.05));
+}
+
+.logout-item .dropdown-icon {
+  background: linear-gradient(135deg, #dc3545, #c82333);
+}
+
+/* Login Item Special Styling */
+.login-item {
+  color: var(--primary-color);
+}
+
+.login-item:hover {
+  background: linear-gradient(135deg, rgba(0, 123, 255, 0.1), rgba(0, 123, 255, 0.05));
+}
+
+.login-item .dropdown-icon {
+  background: var(--primary-gradient);
+}
+
+/* Scrollbar for submenu */
+.language-submenu-vertical::-webkit-scrollbar {
+  width: 4px;
+}
+
+.language-submenu-vertical::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.language-submenu-vertical::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #ff6ec7, #4facfe);
+  border-radius: 2px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .more-dropdown-menu {
+    width: 280px;
+    right: -10px;
+  }
+  
+  .language-grid {
+    grid-template-columns: 1fr; /* Single column on mobile */
+  }
+  
+  .language-option {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+  }
+  
+  /* Show mobile-only nav items on small screens */
+  .mobile-only {
+    display: inline-block;
+  }
+}
+
+@media (min-width: 769px) {
+  /* Hide mobile-only nav items on larger screens */
+  .mobile-only {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .more-dropdown-menu {
+    width: 260px;
+    right: -20px;
+  }
+  
+  .language-submenu-vertical {
+    max-height: 150px;
+  }
+}
+
+/* Hidden Google Translate */
+.translate-container.hidden {
+  display: none;
+}
+
+/* Dark theme support */
+[data-theme="dark"] .dropdown-user-section {
+  background: linear-gradient(135deg, #1a2a57, #1e3a8a);
+}
+
+[data-theme="dark"] .language-submenu-vertical {
+  background: linear-gradient(
+    135deg,
+    rgba(26, 26, 26, 0.95) 0%,
+    rgba(15, 15, 15, 0.9) 100%
+  );
+  border-color: rgba(79, 172, 254, 0.3);
+}
+
+[data-theme="dark"] .language-option:hover {
+  background: linear-gradient(135deg, rgba(79, 172, 254, 0.15), rgba(255, 110, 199, 0.1));
+}
+
+[data-theme="dark"] .language-name {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Dropdown Divider */
+.dropdown-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(79, 172, 254, 0.3),
+    transparent
+  );
+  margin: 4px 16px;
+}
+
+/* Base dropdown item styles */
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: var(--transition-smooth, all 0.3s ease);
+  border-radius: 12px;
+  margin: 8px;
+  position: relative;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+}
+
+.dropdown-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(79, 172, 254, 0.1),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.dropdown-item:hover::before {
+  left: 100%;
+}
+
+.dropdown-item:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(79, 172, 254, 0.1) 0%,
+    rgba(255, 110, 199, 0.05) 100%
+  );
+  transform: translateX(4px);
+  box-shadow: 0 4px 15px rgba(79, 172, 254, 0.2);
+}
+
+.dropdown-icon {
+  font-size: 24px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ff6ec7, #4facfe);
+  box-shadow: 0 4px 12px rgba(79, 172, 254, 0.3);
+  flex-shrink: 0;
+}
+
+.dropdown-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.dropdown-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.dropdown-description {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #64748b);
+  line-height: 1.3;
+}
+
+/* Arrow for dropdown */
+.dropdown-arrow {
+  position: absolute;
+  top: -8px;
+  right: 12px;
+  width: 16px;
+  height: 16px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(255, 255, 255, 0.95) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-bottom: none;
+  border-right: none;
+  transform: rotate(45deg);
+  backdrop-filter: blur(25px);
+}
+
+[data-theme="dark"] .dropdown-arrow {
+  background: linear-gradient(
+    135deg,
+    rgba(26, 26, 26, 0.98) 0%,
+    rgba(15, 15, 15, 0.95) 100%
+  );
+  border-color: rgba(79, 172, 254, 0.3);
+}
+/* Current Language Indicator */
+.language-option {
+  position: relative;
+}
+
+.language-option.active {
+  background: linear-gradient(135deg, rgba(79, 172, 254, 0.2), rgba(255, 110, 199, 0.1));
+  border: 1px solid rgba(79, 172, 254, 0.3);
+}
+
+.current-indicator {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  color: #28a745;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.language-option .language-name {
+  flex: 1;
+  padding-right: 16px; /* Make space for checkmark */
+}

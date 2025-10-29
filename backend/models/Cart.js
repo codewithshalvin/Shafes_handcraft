@@ -56,6 +56,29 @@ const cartItemSchema = new mongoose.Schema({
   quantity: { type: Number, default: 1, min: 1 },
   specialRequest: { type: String, default: "", maxlength: 500 },
   
+  // Custom photo uploaded by user (backward compatibility)
+  customPhoto: {
+    filePath: { type: String }, // File path in uploads folder
+    image: { type: String }, // Base64 encoded image or full URL
+    name: { type: String },  // Original filename
+    size: { type: Number },  // File size in bytes
+    type: { type: String },  // MIME type
+    uploadedAt: { type: Date, default: Date.now }
+  },
+  
+  // Multiple photos uploaded by user
+  customPhotos: [{
+    id: { type: String }, // Frontend generated ID
+    image: { type: String }, // Full URL or base64
+    preview: { type: String }, // Preview URL if different
+    filePath: { type: String }, // Server file path
+    name: { type: String }, // Original filename
+    size: { type: Number }, // File size in bytes
+    type: { type: String }, // MIME type
+    order: { type: Number, default: 1 }, // Display order
+    uploadedAt: { type: Date, default: Date.now }
+  }],
+  
   // Metadata
   addedAt: { type: Date, default: Date.now },
   cartItemId: { type: String } // Unique identifier for frontend

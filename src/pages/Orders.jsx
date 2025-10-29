@@ -1,483 +1,846 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import { useAuth } from "../context/AuthContext";
 
-// --- Utilities for localStorage persistence ---
-const LS_ORDERS_KEY = "orders";
-const LS_CART_KEY = "cart"; // assuming your CartContext also mirrors to localStorage
+const BACKEND_URL = "http://localhost:5000";
 
-function loadOrders() {
-  try {
-    const raw = localStorage.getItem(LS_ORDERS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    console.error("Failed to load orders", e);
-    return [];
+// Steps config for progress bar (icons can be swapped to SVGs later)
+const trackingSteps = [
+  { key: "confirmed", label: "Order Confirmed", icon: "📝" },
+  { key: "shipped", label: "Order Shipped", icon: "📦" },
+  { key: "outForDelivery", label: "Out for Delivery", icon: "🚚" },
+  { key: "delivered", label: "Order Delivered", icon: "🏠" },
+];
+
+// Map your backend orderStatus to a step index
+function getStepIndex(status) {
+  switch (status) {
+    case "pending":
+      return 0;
+    case "confirmed":
+      return 1;
+    case "processing":
+      return 1;
+    case "shipped":
+      return 2;
+    case "outForDelivery":
+      return 3;
+    case "delivered":
+      return 4;
+    case "cancelled":
+      return -1;
+    default:
+      return 0;
   }
 }
-function saveOrders(orders) {
-  try {
-    localStorage.setItem(LS_ORDERS_KEY, JSON.stringify(orders));
-  } catch (e) {
-    console.error("Failed to save orders", e);
-  }
-}
-function loadCart() {
-  try {
-    const raw = localStorage.getItem(LS_CART_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    console.error("Failed to load cart", e);
-    return [];
-  }
-}
 
-function formatINR(amount) {
-  const num = Number(amount || 0);
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(num);
-}
-
-function makeOrderCode() {
-  const now = new Date();
-  const y = String(now.getFullYear()).slice(-2);
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  const short = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `ORD-${y}${m}${d}-${short}`;
-}
-
-// --- Modal helper ---
-function Modal({ open, onClose, title, children, footer }) {
-  if (!open) return null;
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div style={{ background: "#fff", borderRadius: 10, width: "min(850px, 96vw)", maxHeight: "90vh", overflow: "auto", boxShadow: "0 12px 30px rgba(0,0,0,0.2)" }}>
-        <div style={{ padding: 16, borderBottom: "1px solid #eee", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <h3 style={{ margin: 0 }}>{title}</h3>
-          <button onClick={onClose} aria-label="Close" style={{ fontSize: 18, background: "transparent", border: "none", cursor: "pointer" }}>✕</button>
-        </div>
-        <div style={{ padding: 16 }}>{children}</div>
-        {footer && <div style={{ padding: 16, borderTop: "1px solid #eee", display: "flex", gap: 8, justifyContent: "flex-end" }}>{footer}</div>}
-      </div>
-    </div>
-  );
-}
-
-export default function Orders() {
-  const [orders, setOrders] = useState([]);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [creatingFromCart, setCreatingFromCart] = useState(false);
-  const [viewOrder, setViewOrder] = useState(null);
-  const [invoiceOrder, setInvoiceOrder] = useState(null);
-
-  // Checkout form state (for Create Order from Cart)
-  const [customer, setCustomer] = useState({ name: "", phone: "", address: "" });
-  const [paymentMethod, setPaymentMethod] = useState("COD");
-  const [orderNote, setOrderNote] = useState("");
-
-  // Load once
+// Generic modal using a portal with body scroll lock
+function Modal({ onClose, width = 640, children, ariaLabel = "Dialog" }) {
   useEffect(() => {
-    setOrders(loadOrders());
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+    };
   }, []);
 
-  // Derived cart state
-  const cartItems = useMemo(() => loadCart(), []);
-  const cartSubtotal = useMemo(() => {
-    return cartItems.reduce((acc, it) => acc + Number(it.price || 0) * Number(it.qty || 1), 0);
-  }, [cartItems]);
-  const shipping = useMemo(() => (cartSubtotal > 999 ? 0 : cartSubtotal > 0 ? 79 : 0), [cartSubtotal]);
-  const tax = useMemo(() => Math.round(cartSubtotal * 0.05), [cartSubtotal]); // 5% GST example
-  const cartTotal = useMemo(() => cartSubtotal + shipping + tax, [cartSubtotal, shipping, tax]);
+  const overlayStyle = {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.6)",
+    zIndex: 10000,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "16px",
+  };
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return orders
-      .filter((o) => (statusFilter === "ALL" ? true : o.status === statusFilter))
-      .filter((o) =>
-        !q
-          ? true
-          : [
-              o.id,
-              o.code,
-              o.customer?.name,
-              o.customer?.phone,
-              o.customer?.address,
-              ...(o.items || []).map((i) => i.name),
-            ]
-              .join(" ")
-              .toLowerCase()
-              .includes(q)
-      )
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }, [orders, search, statusFilter]);
+  const cardStyle = {
+    background: "white",
+    borderRadius: "15px",
+    width: "100%",
+    maxWidth: `${width}px`,
+    position: "relative",
+    padding: "24px",
+  };
 
-  function persist(next) {
-    setOrders(next);
-    saveOrders(next);
-  }
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={ariaLabel}
+      style={overlayStyle}
+      onClick={onClose}
+      onWheel={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+    >
+      <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
+        <button
+          onClick={onClose}
+          aria-label="Close dialog"
+          style={{
+            position: "absolute",
+            top: "12px",
+            right: "16px",
+            background: "none",
+            border: "none",
+            fontSize: "1.75rem",
+            color: "#888",
+            cursor: "pointer",
+            lineHeight: 1,
+          }}
+        >
+          ×
+        </button>
+        {children}
+      </div>
+    </div>,
+    document.body
+  );
+}
 
-  function placeOrderFromCart() {
-    if (!cartItems.length) {
-      alert("Your cart is empty.");
-      return;
-    }
-    if (!customer.name || !customer.phone || !customer.address) {
-      alert("Please fill customer name, phone, and address.");
-      return;
-    }
-    const now = new Date().toISOString();
-    const newOrder = {
-      id: Date.now(),
-      code: makeOrderCode(),
-      createdAt: now,
-      customer: { ...customer },
-      note: orderNote,
-      items: cartItems.map((it) => ({
-        id: it.id,
-        name: it.name,
-        price: Number(it.price || 0),
-        qty: Number(it.qty || 1),
-        image: it.image,
-        requestMessage: it.requestMessage || "",
-        customDesign: !!it.customDesign,
-      })),
-      totals: { subtotal: cartSubtotal, shipping, tax, total: cartTotal },
-      payment: { method: paymentMethod, status: paymentMethod === "COD" ? "Pending" : "Awaiting Confirmation" },
-      status: "Processing",
-    };
+// Progress bar with a single track and computed progress width
+function ProgressBar({ status }) {
+  const step = getStepIndex(status);
+  // step indexes: 0..4; segments between icons = steps.length - 1
+  const totalSegments = trackingSteps.length - 1;
+  const progressSegments = Math.max(0, Math.min(step - 1, totalSegments));
+  const progressPercent =
+    totalSegments > 0 ? (progressSegments / totalSegments) * 100 : 0;
 
-    const next = [newOrder, ...orders];
-    persist(next);
-    setCreatingFromCart(false);
-    setCustomer({ name: "", phone: "", address: "" });
-    setOrderNote("");
+  const wrapper = {
+    position: "relative",
+    margin: "24px 0 10px 0",
+    padding: "24px 8px 0 8px",
+    minHeight: 110,
+  };
 
-    // Try to clear cart (if your CartContext mirrors in localStorage)
-    try {
-      localStorage.setItem(LS_CART_KEY, JSON.stringify([]));
-      window.dispatchEvent(new Event("storage"));
-    } catch (e) {
-      console.warn("Could not clear cart", e);
-    }
+  const track = {
+    position: "absolute",
+    top: 44, // roughly the icon center
+    left: "8%",
+    right: "8%",
+    height: 5,
+    background: "#e5e7eb",
+    borderRadius: 6,
+    zIndex: 1,
+  };
 
-    alert(`Order ${newOrder.code} placed!`);
-  }
+  const progress = {
+    position: "absolute",
+    top: 44,
+    left: "8%",
+    height: 5,
+    width: `calc(${progressPercent}% * 0.84)`, // 84% because left/right are 8% each
+    background: "#28a745",
+    borderRadius: 6,
+    zIndex: 2,
+    transition: "width 300ms ease",
+  };
 
-  function updateStatus(orderId, nextStatus) {
-    const next = orders.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o));
-    persist(next);
-  }
+  const stepsRow = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    position: "relative",
+    zIndex: 3,
+    padding: "0 8%",
+  };
 
-  function updatePayment(orderId, nextPayment) {
-    const next = orders.map((o) => (o.id === orderId ? { ...o, payment: { ...o.payment, ...nextPayment } } : o));
-    persist(next);
-  }
+  const stepItem = {
+    width: 120,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    textAlign: "center",
+  };
 
-  function removeOrder(orderId) {
-    if (!confirm("Delete this order?")) return;
-    const next = orders.filter((o) => o.id !== orderId);
-    persist(next);
-  }
+  const icon = (active) => ({
+    background: active ? "#28a745" : "#e0e0e0",
+    color: "#fff",
+    borderRadius: "50%",
+    width: 46,
+    height: 46,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "1.6rem",
+    marginBottom: 10,
+    boxShadow: active ? "0 0 8px #28a74588" : "none",
+    border: active ? "2px solid #147fff" : "2px solid #e0e0e0",
+  });
 
-  function openInvoice(order) {
-    setInvoiceOrder(order);
-    // open a printable window
-    const w = window.open("", "_blank");
-    if (!w) return;
-    const styles = `
-      body { font-family: Arial, sans-serif; padding: 24px; }
-      h2 { margin: 0 0 6px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-      th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-      tfoot td { font-weight: bold; }
-      .muted { color: #666; }
-    `;
-    const rows = order.items
-      .map(
-        (it, idx) => `
-          <tr>
-            <td>${idx + 1}</td>
-            <td>${it.name}${it.customDesign ? " (Custom)" : ""}</td>
-            <td>${it.qty}</td>
-            <td>${formatINR(it.price)}</td>
-            <td>${formatINR(it.qty * it.price)}</td>
-          </tr>`
-      )
-      .join("");
-
-    const html = `
-      <html>
-        <head><title>Invoice ${order.code}</title><style>${styles}</style></head>
-        <body>
-          <h2>Shafe's_handcreaft — Tax Invoice</h2>
-          <div class="muted">Order Code: ${order.code} · Date: ${new Date(order.createdAt).toLocaleString()}</div>
-          <hr/>
-          <div><strong>Bill To:</strong><br/>${order.customer.name}<br/>${order.customer.phone}<br/>${order.customer.address}</div>
-          ${order.note ? `<p><strong>Order Note:</strong> ${order.note}</p>` : ""}
-          <table>
-            <thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead>
-            <tbody>${rows}</tbody>
-            <tfoot>
-              <tr><td colspan="4">Subtotal</td><td>${formatINR(order.totals.subtotal)}</td></tr>
-              <tr><td colspan="4">Shipping</td><td>${formatINR(order.totals.shipping)}</td></tr>
-              <tr><td colspan="4">Tax</td><td>${formatINR(order.totals.tax)}</td></tr>
-              <tr><td colspan="4">Total</td><td>${formatINR(order.totals.total)}</td></tr>
-            </tfoot>
-          </table>
-          <p class="muted">Payment: ${order.payment.method} — ${order.payment.status}</p>
-          <script>window.onload = () => window.print();</script>
-        </body>
-      </html>`;
-
-    w.document.write(html);
-    w.document.close();
-  }
+  const label = (active) => ({
+    marginTop: 8,
+    fontWeight: 600,
+    fontSize: "0.95rem",
+    color: active ? "#28a745" : "#707070",
+    lineHeight: 1.2,
+  });
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2 style={{ marginBottom: 6 }}>📦 Orders</h2>
-      <p style={{ marginTop: 0, color: "#666" }}>Create orders from your cart and manage statuses, payments, and invoices.</p>
-
-      {/* Create from cart banner */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: 12, background: "#f7fbff", border: "1px solid #d0e7ff", borderRadius: 10, marginBottom: 16 }}>
-        <div>
-          <strong>Cart Summary:</strong> {cartItems.length} item(s) · Subtotal {formatINR(cartSubtotal)} · Shipping {formatINR(shipping)} · Tax {formatINR(tax)} · <strong>Total {formatINR(cartTotal)}</strong>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setCreatingFromCart(true)} disabled={!cartItems.length} style={{ padding: "8px 12px", borderRadius: 8, background: "#4dabf7", color: "#fff", border: "none" }}>Create Order from Cart</button>
-          <button onClick={() => (window.location.href = "/cart")} style={{ padding: "8px 12px", borderRadius: 8 }}>Go to Cart</button>
-        </div>
+    <div style={wrapper}>
+      <div style={track} />
+      <div style={progress} />
+      <div style={stepsRow}>
+        {trackingSteps.map((s, idx) => {
+          const active = idx <= step - 1;
+          return (
+            <div key={s.key} style={stepItem}>
+              <div style={icon(active)}>{s.icon}</div>
+              <div style={label(active)}>{s.label}</div>
+            </div>
+          );
+        })}
       </div>
-
-      {/* Top toolbar */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-        <input
-          placeholder="Search orders by code, name, phone, item..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: 1, minWidth: 260, padding: 8, borderRadius: 8, border: "1px solid #ddd" }}
-        />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ padding: 8, borderRadius: 8, border: "1px solid #ddd" }}>
-          <option value="ALL">All Statuses</option>
-          <option value="Processing">Processing</option>
-          <option value="Shipped">Shipped</option>
-          <option value="Delivered">Delivered</option>
-          <option value="Cancelled">Cancelled</option>
-        </select>
-      </div>
-
-      {/* Orders table */}
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: "#fafafa" }}>
-              <th style={th}>Code</th>
-              <th style={th}>Customer</th>
-              <th style={th}>Items</th>
-              <th style={th}>Total</th>
-              <th style={th}>Payment</th>
-              <th style={th}>Status</th>
-              <th style={th}>Date</th>
-              <th style={th}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={8} style={{ padding: 24, textAlign: "center", color: "#777" }}>
-                  No orders yet.
-                </td>
-              </tr>
-            )}
-            {filtered.map((o) => (
-              <tr key={o.id} style={{ borderTop: "1px solid #eee" }}>
-                <td style={td}><code>{o.code}</code></td>
-                <td style={td}>
-                  <div style={{ fontWeight: 600 }}>{o.customer?.name}</div>
-                  <div style={{ fontSize: 12, color: "#666" }}>{o.customer?.phone}</div>
-                </td>
-                <td style={td}>{o.items?.length} item(s)</td>
-                <td style={td}>{formatINR(o.totals?.total)}</td>
-                <td style={td}>
-                  <span style={pill}>{o.payment?.method}</span>
-                  <div style={{ fontSize: 12, color: "#666" }}>{o.payment?.status}</div>
-                </td>
-                <td style={td}><span style={{ ...pill, background: statusBg(o.status), color: statusColor(o.status) }}>{o.status}</span></td>
-                <td style={td}>{new Date(o.createdAt).toLocaleString()}</td>
-                <td style={{ ...td, minWidth: 280 }}>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <button onClick={() => setViewOrder(o)} style={btn}>View</button>
-                    <button onClick={() => openInvoice(o)} style={btn}>Invoice</button>
-                    {o.status === "Processing" && (
-                      <button onClick={() => updateStatus(o.id, "Shipped")} style={btnAction}>Mark Shipped</button>
-                    )}
-                    {o.status === "Shipped" && (
-                      <button onClick={() => updateStatus(o.id, "Delivered")} style={btnAction}>Mark Delivered</button>
-                    )}
-                    {o.status !== "Cancelled" && o.status !== "Delivered" && (
-                      <button onClick={() => updateStatus(o.id, "Cancelled")} style={btnDanger}>Cancel</button>
-                    )}
-                    <button onClick={() => removeOrder(o.id)} style={btnGhost}>Delete</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Create from Cart modal */}
-      <Modal
-        open={creatingFromCart}
-        onClose={() => setCreatingFromCart(false)}
-        title="Create Order from Cart"
-        footer={[
-          <button key="cancel" onClick={() => setCreatingFromCart(false)} style={btnGhost}>Cancel</button>,
-          <button key="place" onClick={placeOrderFromCart} style={{ ...btnAction, padding: "10px 14px" }}>Place Order</button>,
-        ]}
-      >
-        {!cartItems.length ? (
-          <p>Your cart is empty. Add items first.</p>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div>
-              <h4>Customer Details</h4>
-              <div style={field}><label>Name</label><input value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} /></div>
-              <div style={field}><label>Phone</label><input value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} /></div>
-              <div style={field}><label>Address</label><textarea rows={5} value={customer.address} onChange={(e) => setCustomer({ ...customer, address: e.target.value })} /></div>
-              <div style={field}><label>Payment Method</label>
-                <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-                  <option>COD</option>
-                  <option>UPI</option>
-                  <option>Card</option>
-                </select>
-              </div>
-              <div style={field}><label>Order Note (optional)</label><textarea rows={3} value={orderNote} onChange={(e) => setOrderNote(e.target.value)} placeholder="e.g., Please gift wrap." /></div>
-            </div>
-            <div>
-              <h4>Items</h4>
-              <div style={{ maxHeight: 300, overflow: "auto", border: "1px solid #eee", borderRadius: 8 }}>
-                {cartItems.map((it) => (
-                  <div key={it.id} style={{ display: "flex", gap: 10, padding: 8, borderBottom: "1px solid #f2f2f2" }}>
-                    <img src={it.image} alt={it.name} style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid #eee" }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600 }}>{it.name}</div>
-                      <div style={{ fontSize: 12, color: "#666" }}>Qty: {it.qty} · {formatINR(it.price)}</div>
-                      {it.requestMessage && <div style={{ fontSize: 12, marginTop: 4 }}><strong>Request:</strong> {it.requestMessage}</div>}
-                      {it.customDesign && <div style={{ fontSize: 12, color: "#2563eb" }}>Custom Design</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 12, padding: 10, border: "1px solid #eee", borderRadius: 8 }}>
-                <div style={sumRow}><span>Subtotal</span><strong>{formatINR(cartSubtotal)}</strong></div>
-                <div style={sumRow}><span>Shipping</span><strong>{formatINR(shipping)}</strong></div>
-                <div style={sumRow}><span>Tax (5%)</span><strong>{formatINR(tax)}</strong></div>
-                <div style={{ ...sumRow, borderTop: "1px dashed #e5e7eb", paddingTop: 8 }}><span>Total</span><strong>{formatINR(cartTotal)}</strong></div>
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* View order modal */}
-      <Modal
-        open={!!viewOrder}
-        onClose={() => setViewOrder(null)}
-        title={viewOrder ? `Order ${viewOrder.code}` : "Order"}
-        footer={[
-          viewOrder && viewOrder.status === "Processing" && (
-            <button key="ship" onClick={() => { updateStatus(viewOrder.id, "Shipped"); setViewOrder({ ...viewOrder, status: "Shipped" }); }} style={btnAction}>Mark Shipped</button>
-          ),
-          viewOrder && viewOrder.status === "Shipped" && (
-            <button key="deliver" onClick={() => { updateStatus(viewOrder.id, "Delivered"); setViewOrder({ ...viewOrder, status: "Delivered" }); }} style={btnAction}>Mark Delivered</button>
-          ),
-          viewOrder && viewOrder.status !== "Cancelled" && viewOrder.status !== "Delivered" && (
-            <button key="cancel" onClick={() => { updateStatus(viewOrder.id, "Cancelled"); setViewOrder({ ...viewOrder, status: "Cancelled" }); }} style={btnDanger}>Cancel</button>
-          ),
-          <button key="close" onClick={() => setViewOrder(null)} style={btnGhost}>Close</button>,
-        ].filter(Boolean)}
-      >
-        {viewOrder && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div>
-              <h4>Customer</h4>
-              <div><strong>{viewOrder.customer?.name}</strong></div>
-              <div>{viewOrder.customer?.phone}</div>
-              <div style={{ whiteSpace: "pre-wrap" }}>{viewOrder.customer?.address}</div>
-              {viewOrder.note && <p><strong>Order Note:</strong> {viewOrder.note}</p>}
-              <p><strong>Payment:</strong> {viewOrder.payment.method} — {viewOrder.payment.status}</p>
-              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                <button onClick={() => updatePayment(viewOrder.id, { status: "Paid" })} style={btn}>Mark Paid</button>
-                <button onClick={() => updatePayment(viewOrder.id, { status: "Refunded" })} style={btn}>Refund</button>
-              </div>
-            </div>
-            <div>
-              <h4>Items</h4>
-              <div style={{ maxHeight: 320, overflow: "auto", border: "1px solid #eee", borderRadius: 8 }}>
-                {viewOrder.items.map((it, idx) => (
-                  <div key={idx} style={{ display: "flex", gap: 10, padding: 8, borderBottom: "1px solid #f2f2f2" }}>
-                    <img src={it.image} alt={it.name} style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid #eee" }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600 }}>{it.name}{it.customDesign ? " (Custom)" : ""}</div>
-                      <div style={{ fontSize: 12, color: "#666" }}>Qty: {it.qty} · {formatINR(it.price)}</div>
-                      {it.requestMessage && <div style={{ fontSize: 12, marginTop: 4 }}><strong>Request:</strong> {it.requestMessage}</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 12, padding: 10, border: "1px solid #eee", borderRadius: 8 }}>
-                <div style={sumRow}><span>Subtotal</span><strong>{formatINR(viewOrder.totals.subtotal)}</strong></div>
-                <div style={sumRow}><span>Shipping</span><strong>{formatINR(viewOrder.totals.shipping)}</strong></div>
-                <div style={sumRow}><span>Tax</span><strong>{formatINR(viewOrder.totals.tax)}</strong></div>
-                <div style={{ ...sumRow, borderTop: "1px dashed #e5e7eb", paddingTop: 8 }}><span>Total</span><strong>{formatINR(viewOrder.totals.total)}</strong></div>
-              </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <button onClick={() => openInvoice(viewOrder)} style={btn}>Print Invoice</button>
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 }
 
-// --- Styles ---
-const th = { textAlign: "left", padding: 10, fontWeight: 700, borderBottom: "1px solid #eee", whiteSpace: "nowrap" };
-const td = { padding: 10, verticalAlign: "top" };
-const pill = { display: "inline-block", padding: "2px 8px", borderRadius: 999, background: "#eef2ff", color: "#333", fontSize: 12 };
-const btn = { padding: "6px 10px", borderRadius: 8, border: "1px solid #ddd", background: "#fff", cursor: "pointer" };
-const btnAction = { ...btn, background: "#4dabf7", color: "#fff", border: "1px solid #4dabf7" };
-const btnDanger = { ...btn, background: "#ef4444", color: "#fff", border: "1px solid #ef4444" };
-const btnGhost = { ...btn, background: "#f8f9fa" };
-const field = { display: "grid", gap: 6, marginBottom: 10 };
-const sumRow = { display: "flex", justifyContent: "space-between", margin: "6px 0" };
+export default function CustomerOrders() {
+  const { user } = useAuth();
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [debugInfo, setDebugInfo] = useState('');
 
-function statusBg(s) {
-  switch (s) {
-    case "Processing":
-      return "#fff7ed";
-    case "Shipped":
-      return "#ecfeff";
-    case "Delivered":
-      return "#ecfdf5";
-    case "Cancelled":
-      return "#fef2f2";
-    default:
-      return "#f3f4f6";
+  // Tracking modal
+  const [trackModal, setTrackModal] = useState(false);
+  const [trackOrder, setTrackOrder] = useState(null);
+
+  // Receipt modal
+  const [detailModal, setDetailModal] = useState(false);
+  const [detailOrder, setDetailOrder] = useState(null);
+  const receiptRef = useRef();
+
+  useEffect(() => {
+    console.log('Orders useEffect - user:', user);
+    console.log('user?._id:', user?._id);
+    console.log('user?.id:', user?.id);
+    console.log('user?.userId:', user?.userId);
+    console.log('typeof user:', typeof user);
+    console.log('user === null:', user === null);
+    console.log('user === undefined:', user === undefined);
+    
+    // Get the user ID from whichever property is available
+    const userId = user?._id || user?.id || user?.userId;
+    console.log('Determined userId:', userId);
+    
+    const fetchCustomerOrders = async () => {
+      try {
+        console.log('🚀 Starting fetchCustomerOrders for user ID:', userId);
+        console.log('🌐 Backend URL:', BACKEND_URL);
+        setError(null);
+        setDebugInfo('Starting fetch...');
+        
+        const url = `${BACKEND_URL}/api/customer/orders/${userId}`;
+        console.log('📡 Making request to:', url);
+        setDebugInfo(`Making request to: ${url}`);
+        
+        // Create an AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
+        setDebugInfo('Sending fetch request...');
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal
+        });
+        
+        setDebugInfo('Response received!');
+        
+        clearTimeout(timeoutId);
+        
+        console.log('📥 Orders API response received');
+        console.log('📊 Response status:', response.status);
+        console.log('📋 Response headers:', Object.fromEntries(response.headers.entries()));
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        console.log('📖 Parsing JSON response...');
+        const data = await response.json();
+        console.log('✅ Orders API response data:', data);
+        console.log('📦 Number of orders:', data.orders?.length || 0);
+        
+        if (data.success) {
+          console.log('✅ Setting orders state with', data.orders?.length || 0, 'orders');
+          setOrders(data.orders || []);
+        } else {
+          console.log('❌ API returned error:', data.error || data.message);
+          setError(data.error || data.message || 'Failed to fetch orders');
+        }
+      } catch (error) {
+        console.error('❌ Fetch error:', error);
+        console.error('❌ Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
+        setError(`Failed to load orders: ${error.message}`);
+      } finally {
+        console.log('🏁 Fetch complete, setting loading to false');
+        setLoading(false);
+      }
+    };
+    
+    if (userId) {
+      console.log('✅ Condition met: userId is truthy, calling fetchCustomerOrders');
+      setDebugInfo('About to call fetchCustomerOrders...');
+      fetchCustomerOrders();
+    } else if (user === null) {
+      console.log('❌ User is explicitly null (not logged in)');
+      // User is explicitly null (not logged in)
+      setLoading(false);
+      setError('Please log in to view your orders');
+    } else {
+      console.log('🔄 User is undefined, still loading auth state');
+      setDebugInfo('Waiting for user authentication...');
+    }
+    // If user is undefined, keep loading (still checking auth)
+  }, [user]);
+
+
+  const handleCancelOrder = async (orderId) => {
+    if (!window.confirm("Are you sure you want to cancel this order?")) return;
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/api/customer/orders/${orderId}`,
+        { method: "DELETE", headers: { "Content-Type": "application/json" } }
+      );
+      const data = await response.json();
+      if (data.success) {
+        setOrders((prev) => prev.filter((o) => o._id !== orderId));
+        alert("Order cancelled!");
+      } else alert(data.message || "Cancellation failed.");
+    } catch (error) {
+      alert("Server error cancelling order.");
+      console.error(error);
+    }
+  };
+
+  const openTrackModal = (order) => {
+    setTrackOrder(order);
+    setTrackModal(true);
+  };
+
+  const openDetailModal = (order) => {
+    setDetailOrder(order);
+    setDetailModal(true);
+  };
+
+  const handlePrint = () => {
+    if (!receiptRef.current) return;
+    const html = receiptRef.current.innerHTML;
+    const w = window.open("", "", "height=700,width=900");
+    w.document.write("<html><head><title>Order Receipt</title>");
+    w.document.write(
+      "<style>body{font-family:sans-serif;margin:30px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border-bottom:1px solid #eee;}h2{color:#147FFF;} h3{color:#28a745;} .total{font-size:1.1rem;}</style>"
+    );
+    w.document.write("</head><body>");
+    w.document.write(html);
+    w.document.write("</body></html>");
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 300);
+    setTimeout(() => w.close(), 700);
+  };
+
+  const formatDateTime = (dateString) =>
+    dateString
+      ? new Date(dateString).toLocaleString("en-IN", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "-";
+
+  const formatCurrency = (amount) => `₹${amount?.toFixed(2) || "0.00"}`;
+
+  const getStatusColor = (status) =>
+    (
+      {
+        pending: "#ffc107",
+        confirmed: "#17a2b8",
+        processing: "#fd7e14",
+        shipped: "#6f42c1",
+        delivered: "#28a745",
+        cancelled: "#dc3545",
+      }[status] || "#6c757d"
+    );
+
+  if (loading) {
+    return (
+      <div style={{ padding: "2rem" }}>
+        <div>Loading your orders...</div>
+        {debugInfo && (
+          <div style={{ 
+            marginTop: "1rem", 
+            padding: "1rem", 
+            background: "#f0f0f0", 
+            borderRadius: "5px",
+            fontSize: "0.9rem",
+            color: "#666"
+          }}>
+            Debug: {debugInfo}
+          </div>
+        )}
+        {user && (
+          <div style={{ 
+            marginTop: "1rem", 
+            padding: "1rem", 
+            background: "#e8f5e8", 
+            borderRadius: "5px",
+            fontSize: "0.9rem",
+            color: "#2d5a2d"
+          }}>
+            User ID: {user._id || user.id || user.userId || 'NOT FOUND'}<br/>
+            Name: {user.name}<br/>
+            Email: {user.email}<br/>
+            Full user object: {JSON.stringify(user, null, 2)}
+          </div>
+        )}
+      </div>
+    );
   }
-}
-function statusColor(s) {
-  switch (s) {
-    case "Processing":
-      return "#9a3412";
-    case "Shipped":
-      return "#164e63";
-    case "Delivered":
-      return "#065f46";
-    case "Cancelled":
-      return "#991b1b";
-    default:
-      return "#374151";
+  
+  if (error) {
+    return (
+      <div style={{ 
+        padding: "2rem", 
+        textAlign: "center",
+        background: "white",
+        borderRadius: "10px",
+        margin: "2rem",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.1)"
+      }}>
+        <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚠️</div>
+        <h3 style={{ color: "#dc3545", marginBottom: "1rem" }}>Error Loading Orders</h3>
+        <p style={{ color: "#666", marginBottom: "1rem" }}>{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          style={{
+            background: "#007bff",
+            color: "white",
+            border: "none",
+            padding: "0.75rem 1.5rem",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "1rem"
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
+
+  return (
+    <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
+      <h1 style={{ color: "#2c3e50", marginBottom: "2rem" }}>
+        📦 My Orders ({orders.length})
+      </h1>
+
+      {orders.length === 0 ? (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "4rem 2rem",
+            background: "white",
+            borderRadius: "10px",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+          }}
+        >
+          <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🛍️</div>
+          <h3>No Orders Yet</h3>
+          <p>You haven't placed any orders yet. Start shopping!</p>
+          <button
+            style={{
+              background: "#007bff",
+              color: "white",
+              border: "none",
+              padding: "1rem 2rem",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "1rem",
+              marginTop: "1rem",
+            }}
+          >
+            Start Shopping
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          {orders.map((order) => (
+            <div
+              key={order._id}
+              style={{
+                background: "white",
+                borderRadius: "10px",
+                padding: "2rem",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+                border: "1px solid #e9ecef",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  marginBottom: "1.5rem",
+                  flexWrap: "wrap",
+                  gap: "1rem",
+                }}
+              >
+                <div>
+                  <h3 style={{ margin: "0 0 0.5rem 0", color: "#007bff" }}>
+                    {order.orderId}
+                  </h3>
+                  <p style={{ margin: 0, color: "#6c757d" }}>
+                    Ordered on {formatDateTime(order.createdAt)}
+                  </p>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ marginBottom: "0.5rem" }}>
+                    <span
+                      style={{
+                        background: getStatusColor(order.orderStatus),
+                        color: "white",
+                        padding: "0.4rem 1rem",
+                        borderRadius: "20px",
+                        fontSize: "0.9rem",
+                        fontWeight: 600,
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {order.orderStatus}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "1.2rem",
+                      fontWeight: "bold",
+                      color: "#28a745",
+                    }}
+                  >
+                    {formatCurrency(order.totalAmount)}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+                  gap: "1rem",
+                }}
+              >
+                {order.items?.slice(0, 3).map((item, index) => {
+                  const imageSrc = item.product?.image?.startsWith("/uploads")
+                    ? `${BACKEND_URL}${item.product.image}`
+                    : item.product?.image;
+                  return (
+                    <div
+                      key={index}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "1rem",
+                        background: "#f8f9fa",
+                        padding: "1rem",
+                        borderRadius: "8px",
+                      }}
+                    >
+                      {imageSrc && (
+                        <img
+                          src={imageSrc}
+                          alt={item.product?.name}
+                          style={{
+                            width: 60,
+                            height: 60,
+                            objectFit: "cover",
+                            borderRadius: "6px",
+                          }}
+                        />
+                      )}
+                      <div>
+                        <h5 style={{ margin: "0 0 0.5rem 0" }}>
+                          {item.isCustomDesign
+                            ? item.customDesign?.name
+                            : item.product?.name}
+                        </h5>
+                        <p style={{ margin: 0, color: "#666", fontSize: "0.9rem" }}>
+                          Qty: {item.quantity} × {formatCurrency(item.price)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {order.items?.length > 3 && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "#f8f9fa",
+                      padding: "1rem",
+                      borderRadius: "8px",
+                      color: "#666",
+                      fontWeight: 600,
+                    }}
+                  >
+                    +{order.items.length - 3} more items
+                  </div>
+                )}
+              </div>
+
+              <div
+                style={{
+                  marginTop: "1.5rem",
+                  paddingTop: "1.5rem",
+                  borderTop: "1px solid #e9ecef",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "1rem",
+                }}
+              >
+                <div style={{ color: "#6c757d" }}>
+                  <strong>Payment:</strong> {order.paymentStatus} •{" "}
+                  <strong> Items:</strong> {order.items?.length}
+                </div>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    style={{
+                      background: "#007bff",
+                      color: "white",
+                      border: "none",
+                      padding: "0.5rem 1rem",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "0.9rem",
+                    }}
+                    onClick={() => openTrackModal(order)}
+                  >
+                    Track Order
+                  </button>
+                  <button
+                    style={{
+                      background: "white",
+                      color: "#007bff",
+                      border: "2px solid #007bff",
+                      padding: "0.5rem 1rem",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "0.9rem",
+                    }}
+                    onClick={() => openDetailModal(order)}
+                  >
+                    View Details
+                  </button>
+                  {order.orderStatus === "pending" && (
+                    <button
+                      style={{
+                        background: "#dc3545",
+                        color: "white",
+                        border: "none",
+                        padding: "0.5rem 1rem",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "0.9rem",
+                      }}
+                      onClick={() => handleCancelOrder(order._id)}
+                    >
+                      Cancel Order
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tracking Modal */}
+      {trackModal && trackOrder && (
+        <Modal onClose={() => setTrackModal(false)} width={680} ariaLabel="Order tracking">
+          <h2 style={{ marginBottom: "1rem", textAlign: "center", color: "#147FFF" }}>
+            Order Tracking
+          </h2>
+          <div
+            style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}
+          >
+            <div>
+              <div style={{ fontWeight: 500 }}>
+                Order ID:{" "}
+                <span style={{ color: "#28a745", fontWeight: 700 }}>
+                  {trackOrder.orderId}
+                </span>
+              </div>
+              <div>
+                Expected Arrival:&nbsp;
+                <span
+                  style={{
+                    background: "#147FFF",
+                    color: "white",
+                    borderRadius: "8px",
+                    padding: "2px 10px",
+                    fontWeight: 500,
+                  }}
+                >
+                  {trackOrder.expectedArrival
+                    ? formatDateTime(trackOrder.expectedArrival)
+                    : "-"}
+                </span>
+              </div>
+            </div>
+            <div>
+              <div>
+                Tracking ID:&nbsp;
+                <span
+                  style={{
+                    background: "#e83e8c",
+                    color: "white",
+                    borderRadius: "8px",
+                    padding: "2px 10px",
+                    fontWeight: 500,
+                  }}
+                >
+                  {trackOrder.trackingId || "-"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <ProgressBar status={trackOrder.orderStatus} />
+
+          <ul
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              padding: 0,
+              marginTop: 18,
+              listStyle: "none",
+            }}
+          >
+            {trackingSteps.map((step, idx) => (
+              <li
+                key={step.key}
+                style={{
+                  width: 120,
+                  textAlign: "center",
+                  fontSize: "0.93rem",
+                  color: "#343a40",
+                }}
+              >
+                {trackOrder[`${step.key}At`] && (
+                  <div style={{ color: "#28a745", fontSize: "0.93rem" }}>
+                    {formatDateTime(trackOrder[`${step.key}At`])}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Modal>
+      )}
+
+      {/* View Details / Receipt Modal */}
+      {detailModal && detailOrder && (
+        <Modal onClose={() => setDetailModal(false)} width={680} ariaLabel="Order receipt">
+          <div ref={receiptRef}>
+            <h2 style={{ color: "#147FFF", textAlign: "center", marginBottom: "1.5rem" }}>
+              Order Receipt
+            </h2>
+            <div
+              style={{ marginBottom: 10, display: "flex", justifyContent: "space-between" }}
+            >
+              <div>
+                <div>
+                  <b>Order ID:</b> {detailOrder.orderId}
+                </div>
+                <div>
+                  <b>Date:</b> {formatDateTime(detailOrder.createdAt)}
+                </div>
+              </div>
+              <div>
+                <div>
+                  <b>Payment:</b> {detailOrder.paymentStatus}
+                </div>
+                <div>
+                  <b>Status:</b> {detailOrder.orderStatus}
+                </div>
+              </div>
+            </div>
+            <div>
+              <b>Shipping To:</b>
+              <div style={{ marginBottom: "1em", color: "#333" }}>
+                {detailOrder.shippingAddress?.name} <br />
+                {detailOrder.shippingAddress?.phone}
+                <br />
+                {detailOrder.shippingAddress?.address}
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Qty</th>
+                  <th>Item Price</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detailOrder.items.map((item, i) => (
+                  <tr key={i}>
+                    <td>
+                      {item.isCustomDesign
+                        ? item.customDesign?.name
+                        : item.product?.name}
+                    </td>
+                    <td>{item.quantity}</td>
+                    <td>{formatCurrency(item.price)}</td>
+                    <td>{formatCurrency(item.price * item.quantity)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan="3" style={{ textAlign: "right", fontWeight: 600 }}>
+                    Subtotal:
+                  </td>
+                  <td className="total">{formatCurrency(detailOrder.totalAmount)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
+            <button
+              style={{
+                background: "#28a745",
+                color: "white",
+                border: "none",
+                padding: "0.75rem 2.75rem",
+                borderRadius: "7px",
+                cursor: "pointer",
+                fontSize: "1rem",
+              }}
+              onClick={handlePrint}
+            >
+              Print Receipt
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
 }

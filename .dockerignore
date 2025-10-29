@@ -1,0 +1,23 @@
+# Node
+node_modules
+**/node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vite
+.dist
+**/dist
+
+# Build caches
+.cache
+.eslintcache
+
+# Env files (provided at runtime)
+.env
+**/.env
+
+# OS
+.DS_Store
+Thumbs.db

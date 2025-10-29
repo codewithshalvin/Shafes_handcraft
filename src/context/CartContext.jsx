@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useAuth } from "./AuthContext";
+import { handleCustomerPhotoUpload, handleMultipleCustomerPhotos } from '../utils/photoUpload';
 
 const CartContext = createContext();
 
@@ -266,9 +267,26 @@ export function CartProvider({ children }) {
     }
   };
 
+  // ✅ Convert uploaded photo to base64 for storage
+  const convertPhotoToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   // ✅ Enhanced Add product to cart with detailed logging
   const addToCart = async (product, qty = 1) => {
-    console.log("Adding to cart:", { product: product.name || product._id, qty, isCustom: !!(product.isCustomDesign || product.customDesign) });
+    console.log("Adding to cart:", { 
+      product: product.name || product._id, 
+      qty, 
+      isCustom: !!(product.isCustomDesign || product.customDesign),
+      hasCustomPhoto: !!product.customPhoto,
+      hasCustomPhotos: !!(product.customPhotos && product.customPhotos.length > 0),
+      photosCount: product.customPhotos?.length || 0
+    });
     
     try {
       setLoading(true);
@@ -343,16 +361,45 @@ export function CartProvider({ children }) {
       // ✅ Handle regular products
       if (!token) {
         // Store temporarily if no token
+        let customPhotosData = [];
+        
+        // Handle multiple photos
+        if (product.customPhotos && product.customPhotos.length > 0) {
+          try {
+            console.log("Processing multiple photos for temporary storage...", product.customPhotos.length);
+            customPhotosData = await handleMultipleCustomerPhotos(product.customPhotos, null);
+            console.log("Photos processed for temporary storage:", customPhotosData.length);
+          } catch (photoError) {
+            console.error("Failed to process photos for temporary storage:", photoError);
+            // Continue without photos if processing fails
+          }
+        }
+        // Handle single photo (backward compatibility)
+        else if (product.customPhoto && product.customPhoto.file) {
+          try {
+            console.log("Uploading single photo for temporary storage...");
+            const singlePhotoData = await handleCustomerPhotoUpload(product.customPhoto.file, null);
+            customPhotosData = [{ ...singlePhotoData, order: 1 }];
+            console.log("Single photo uploaded for temporary storage:", singlePhotoData.filePath);
+          } catch (photoError) {
+            console.error("Failed to upload photo for temporary storage:", photoError);
+            // Continue without photo if upload fails
+          }
+        }
+        
         const tempItem = {
           ...product,
           quantity: qty,
           cartItemId: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           isTemporary: true,
           specialRequest: product.specialRequest || "",
+          customPhotos: customPhotosData,
+          // Keep backward compatibility
+          customPhoto: customPhotosData.length > 0 ? customPhotosData[0] : null,
         };
         
         setCart(prevCart => [...prevCart, tempItem]);
-        console.log("Regular product stored temporarily");
+        console.log("Regular product stored temporarily with photos:", customPhotosData.length);
         return;
       }
 
@@ -362,6 +409,33 @@ export function CartProvider({ children }) {
       }
 
       console.log("Sending regular product to server...", product._id);
+      
+      // Handle photo uploads if present
+      let customPhotosData = [];
+      
+      // Handle multiple photos
+      if (product.customPhotos && product.customPhotos.length > 0) {
+        try {
+          console.log("Uploading multiple customer photos to server...", product.customPhotos.length);
+          customPhotosData = await handleMultipleCustomerPhotos(product.customPhotos, token);
+          console.log("Photos uploaded successfully:", customPhotosData.length);
+        } catch (photoError) {
+          console.error("Failed to upload multiple photos:", photoError);
+          throw new Error("Failed to upload customer photos: " + photoError.message);
+        }
+      }
+      // Handle single photo (backward compatibility)
+      else if (product.customPhoto && product.customPhoto.file) {
+        try {
+          console.log("Uploading single customer photo to server...");
+          const singlePhotoData = await handleCustomerPhotoUpload(product.customPhoto.file, token);
+          customPhotosData = [{ ...singlePhotoData, order: 1 }];
+          console.log("Single photo uploaded successfully:", singlePhotoData.filePath);
+        } catch (photoError) {
+          console.error("Failed to upload photo:", photoError);
+          throw new Error("Failed to upload customer photo: " + photoError.message);
+        }
+      }
       
       const res = await fetch("http://localhost:5000/api/cart/add", {
         method: "POST",
@@ -373,6 +447,9 @@ export function CartProvider({ children }) {
           productId: product._id,
           quantity: qty,
           specialRequest: product.specialRequest || "",
+          customPhotos: customPhotosData,
+          // Keep backward compatibility
+          customPhoto: customPhotosData.length > 0 ? customPhotosData[0] : null,
         }),
       });
 
@@ -393,78 +470,179 @@ export function CartProvider({ children }) {
       setLoading(false);
     }
   };
+// ✅ FIXED Remove function - NO optimistic updates, wait for server
+const removeFromCart = async (productId, isCustom = false) => {
+  console.log("🗑️ Starting removal process:", { productId, isCustom, currentCartSize: cart.length });
+  
+  try {
+    setLoading(true);
+    setError(null);
 
-  // ✅ Enhanced Remove product from cart with better identification
-  const removeFromCart = async (productId, isCustom = false) => {
-    console.log("Removing from cart:", { productId, isCustom });
-    
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Handle local custom designs
-      const isLocalCustom = cart.find(item => 
-        (item.cartItemId === productId || item._id === productId || item.id === productId) && 
-        (item.isLocal || isCustom)
-      );
-
-      if (isLocalCustom) {
-        setCart(prevCart => {
-          const filtered = prevCart.filter(item => 
-            item.cartItemId !== productId && 
-            item._id !== productId && 
-            item.id !== productId
-          );
-          console.log("Removed local item");
-          return filtered;
-        });
-        return;
-      }
-
-      // Handle server items
-      if (!token) {
-        setCart(prevCart => {
-          const filtered = prevCart.filter(item => 
-            item._id !== productId && item.id !== productId
-          );
-          console.log("Removed temporary item");
-          return filtered;
-        });
-        return;
-      }
-
-      console.log("Removing item from server...");
+    // ✅ Find the item to understand its structure
+    const itemToRemove = cart.find(item => {
+      const itemIds = [
+        item._id,
+        item.cartItemId, 
+        item.id,
+        item.product?._id
+      ].filter(Boolean);
       
-      const res = await fetch("http://localhost:5000/api/cart/remove", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ 
-          productId, 
-          cartItemId: productId,
-          isCustom 
-        }),
-      });
+      return itemIds.includes(productId);
+    });
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("Remove error response:", errorText);
-        throw new Error(`Server error: ${res.status}`);
-      }
-
-      const data = await res.json();
-      setCart(data.items || []);
-      console.log("Item removed from server successfully");
-      
-    } catch (error) {
-      console.error("Remove from cart failed:", error);
-      setError(`Failed to remove item: ${error.message}`);
-    } finally {
+    if (!itemToRemove) {
+      console.log("❌ Item not found in frontend cart state");
+      setError("Item not found in cart");
       setLoading(false);
+      return;
     }
-  };
+
+    console.log("✅ Found item to remove:", {
+      name: itemToRemove.name || itemToRemove.product?.name || 'Unknown',
+      _id: itemToRemove._id,
+      cartItemId: itemToRemove.cartItemId,
+      productId: itemToRemove.product?._id,
+      isLocal: itemToRemove.isLocal,
+      isCustomDesign: itemToRemove.isCustomDesign,
+      isTemporary: itemToRemove.isTemporary
+    });
+
+    // ✅ CASE 1: Local/Temporary items (no server removal needed)
+    const isLocalItem = itemToRemove.isLocal || 
+                       itemToRemove.isTemporary || 
+                       (!token && (itemToRemove.isCustomDesign || itemToRemove.customDesign));
+
+    if (isLocalItem) {
+      console.log("🏠 Removing local item (no server call needed)");
+      setCart(prevCart => {
+        const filtered = prevCart.filter(item => {
+          const itemIds = [item._id, item.cartItemId, item.id, item.product?._id].filter(Boolean);
+          return !itemIds.includes(productId);
+        });
+        console.log(`✅ Local removal complete: ${prevCart.length} -> ${filtered.length}`);
+        return filtered;
+      });
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    // ✅ CASE 2: No token - only remove from local state
+    if (!token) {
+      console.log("🔐 No token, removing from local state only");
+      setCart(prevCart => {
+        const filtered = prevCart.filter(item => {
+          const itemIds = [item._id, item.cartItemId, item.id, item.product?._id].filter(Boolean);
+          return !itemIds.includes(productId);
+        });
+        return filtered;
+      });
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    // ✅ CASE 3: Server item - DO NOT update state until server confirms
+    const serverItemIsCustom = itemToRemove.isCustomDesign || itemToRemove.customDesign || isCustom;
+    
+    // ✅ Build the request payload based on item type
+    let requestPayload;
+    
+    if (serverItemIsCustom) {
+      requestPayload = {
+        productId: itemToRemove.cartItemId || itemToRemove._id || productId,
+        cartItemId: itemToRemove.cartItemId || itemToRemove._id || productId,
+        isCustom: true
+      };
+    } else {
+      requestPayload = {
+        productId: itemToRemove.product?._id || itemToRemove._id || productId,
+        cartItemId: itemToRemove._id || productId,
+        isCustom: false
+      };
+    }
+
+    console.log("🌐 Calling server to remove item...", requestPayload);
+    
+    // ❌ DO NOT update local state yet - wait for server response
+    
+    const res = await fetch("http://localhost:5000/api/cart/remove", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(requestPayload),
+    });
+
+    console.log("📡 Server response status:", res.status);
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error("❌ Server removal failed:", res.status, errorText);
+      
+      // ✅ Only update local state if server explicitly says item not found (404)
+      if (res.status === 404) {
+        console.log("🔍 Server says item not found (404), removing from local state");
+        setCart(prevCart => {
+          const filtered = prevCart.filter(item => {
+            const itemIds = [item._id, item.cartItemId, item.id, item.product?._id].filter(Boolean);
+            return !itemIds.includes(productId);
+          });
+          return filtered;
+        });
+        setError(null);
+      } else {
+        // ✅ For other errors, show error and keep item in cart
+        console.error("❌ Server error - keeping item in cart");
+        
+        let errorMessage;
+        try {
+          const parsedError = JSON.parse(errorText);
+          errorMessage = parsedError.message || `Server error ${res.status}`;
+        } catch (parseErr) {
+          errorMessage = `Server error ${res.status}`;
+        }
+        
+        setError(`Failed to remove item: ${errorMessage}`);
+      }
+      setLoading(false);
+      return;
+    }
+
+    // ✅ Server removal successful - update state with server response
+    try {
+      const data = await res.json();
+      console.log("✅ Server removal successful, response:", data);
+      
+      if (data.success && data.items) {
+        setCart(data.items);
+        console.log("Cart updated with server data");
+      } else {
+        // If no items in response, fetch fresh cart data
+        console.log("📡 No items in response, fetching fresh cart...");
+        await fetchCartAndWishlist();
+      }
+      
+      setError(null);
+    } catch (parseError) {
+      console.error("❌ Failed to parse server response, fetching fresh cart data");
+      await fetchCartAndWishlist();
+    }
+    
+  } catch (error) {
+    console.error("❌ Remove operation failed:", error);
+    setError(`Network error: ${error.message}`);
+    
+    // ✅ For network errors, don't update local state - let user retry
+    console.log("🔄 Network error - keeping item in cart for retry");
+    
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
   // ✅ Enhanced Update quantity function with validation
   const updateQuantity = async (productId, newQuantity, isCustom = false) => {

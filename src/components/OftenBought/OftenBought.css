@@ -1,0 +1,110 @@
+/* Often Bought - Animated Cards with Orbit and Tilt */
+.ob-section { 
+  padding: 64px 20px; 
+  background: radial-gradient(1200px 600px at 10% -10%, rgba(102,126,234,0.08), transparent),
+              radial-gradient(1200px 600px at 110% 110%, rgba(118,75,162,0.08), transparent);
+}
+.ob-header { max-width: 1200px; margin: 0 auto 18px; text-align: center; }
+.ob-title { font-size: 1.8rem; font-weight: 800; letter-spacing: .3px; background: linear-gradient(45deg,#667eea,#764ba2); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.ob-sub { color:#666; margin-top:6px; font-weight:500; }
+
+.ob-grid { 
+  max-width: 1200px; margin: 0 auto; display:grid; gap:18px; 
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.ob-card { 
+  position:relative; overflow:hidden; border-radius:18px; background:#fff; 
+  border:1px solid rgba(0,0,0,0.06); box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  transform-style: preserve-3d; transform: perspective(1000px) translateZ(0);
+  transition: transform .35s ease, box-shadow .35s ease, border-color .35s ease;
+  text-decoration:none; color:inherit;
+}
+.ob-card:hover { 
+  transform: perspective(1000px) translateZ(6px) rotateX(1.5deg) rotateY(-1.5deg) scale(1.02);
+  box-shadow: 0 18px 40px rgba(102,126,234,0.25);
+  border-color: rgba(102,126,234,0.35);
+}
+
+/* Orbiting ring */
+.ob-orbit { position:absolute; inset:-20%; border-radius:50%; pointer-events:none; 
+  border:2px dashed rgba(102,126,234,0.18); animation: ob-spin 12s linear infinite; filter: blur(.3px);
+}
+.ob-card:hover .ob-orbit { border-color: rgba(118,75,162,0.35); }
+
+@keyframes ob-spin { from{ transform: rotate(0deg);} to{ transform: rotate(360deg);} }
+
+.ob-img-wrap { position:relative; height: 180px; overflow:hidden; border-bottom:1px solid rgba(0,0,0,0.06); }
+.ob-img { width:100%; height:100%; object-fit:cover; display:block; transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+.ob-card:hover .ob-img { transform: scale(1.08); }
+.ob-fallback { background: linear-gradient(135deg,#f2f4ff,#f7f2ff); }
+
+.ob-badge { position:absolute; bottom:10px; left:10px; font-size:.75rem; font-weight:700;
+  padding:6px 10px; border-radius:999px; color:#fff; background:linear-gradient(45deg,#667eea,#764ba2);
+  box-shadow: 0 6px 18px rgba(102,126,234,.35);
+}
+
+.ob-meta { padding: 12px 14px 16px; }
+.ob-name { font-size: 1rem; margin: 2px 0 8px; font-weight: 700; color:#24292f; }
+.ob-row { display:flex; gap:8px; align-items:center; justify-content:space-between; }
+.ob-price { font-weight: 800; color:#111827; }
+.ob-cat { font-size:.75rem; color:#6b7280; background:#f3f4f6; padding:4px 8px; border-radius:999px; }
+
+/* Skeleton */
+.ob-skeleton { position:relative; overflow:hidden; background: #fff; }
+.ob-skeleton .ob-img { background: #eef1ff; }
+.ob-line { height: 10px; background: #eef1ff; border-radius:6px; margin-top:8px; }
+.ob-line.w-70{ width:70%; } .ob-line.w-40{ width:40%; }
+.ob-skeleton::after { content:''; position:absolute; inset:0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent); transform: translateX(-100%); animation: ob-shimmer 1.3s infinite; }
+@keyframes ob-shimmer { 100% { transform: translateX(100%); } }
+
+/* Polaroid Train Styles */
+.ob-train { position: relative; margin-top: 16px; }
+.ob-train-viewport { overflow: hidden; position: relative; padding: 14px 0 24px; }
+.ob-train-viewport::before, .ob-train-viewport::after {
+  content:''; position:absolute; top:0; bottom:0; width:80px; pointer-events:none;
+  background: linear-gradient(to right, #fff, rgba(255,255,255,0)); z-index: 2;
+}
+.ob-train-viewport::after { right:0; transform: scaleX(-1); }
+.ob-train-viewport::before { left:0; }
+
+.ob-train-track {
+  display: inline-flex; gap: 18px; align-items: flex-end; will-change: transform;
+  animation: ob-train-scroll var(--ob-speed, 30s) linear infinite;
+}
+.ob-train-viewport:hover .ob-train-track { animation-play-state: paused; }
+
+@keyframes ob-train-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Polaroid card */
+.ob-polaroid-link { display: inline-block; text-decoration: none; color: inherit; }
+.ob-polaroid {
+  width: 180px; background: #fff; border-radius: 10px; box-shadow: 0 12px 25px rgba(0,0,0,0.15);
+  transform: rotate(var(--tilt, 0deg)); transition: transform .3s ease, box-shadow .3s ease; padding: 10px 10px 14px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+.ob-polaroid:hover { transform: rotate(0deg) translateY(-4px) scale(1.03); box-shadow: 0 18px 36px rgba(102,126,234,0.25); }
+
+.ob-polaroid-photo { position: relative; height: 180px; border-radius: 6px; overflow: hidden; background: #f3f4f6; }
+.ob-polaroid-photo img { width: 100%; height: 100%; object-fit: cover; display:block; }
+.ob-photo-fallback { width:100%; height:100%; background: linear-gradient(135deg,#eef2ff,#f5f3ff); }
+.ob-sold { position:absolute; bottom:8px; left:8px; font-size:.72rem; font-weight:800; color:#fff; padding:4px 8px; border-radius:999px; background: linear-gradient(45deg,#667eea,#764ba2); box-shadow: 0 6px 16px rgba(102,126,234,0.35); }
+
+.ob-polaroid-caption { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top: 10px; }
+.ob-cap-name { font-size:.9rem; font-weight: 800; color:#1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.ob-cap-price { font-weight: 800; color:#111827; font-size:.9rem; }
+
+/* Decorative rails */
+.ob-rails { position:absolute; left:0; right:0; bottom: 2px; pointer-events:none; }
+.ob-rail { height: 2px; background: repeating-linear-gradient(90deg, #c7d2fe 0 40px, #a5b4fc 40px 44px); opacity:.7; filter: blur(.3px); }
+.ob-rail--bottom { margin-top: 6px; opacity:.5; }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .ob-img-wrap { height: 150px; }
+  .ob-polaroid { width: 150px; }
+  .ob-polaroid-photo { height: 150px; }
+}

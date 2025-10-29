@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Upload Flow Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .test-section h3 { margin-top: 0; color: #2c3e50; }
+        button { padding: 10px 15px; margin: 5px; background: #3498db; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #2980b9; }
+        .log { background: #f8f9fa; padding: 10px; border-radius: 3px; font-family: monospace; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+        .success { color: #27ae60; }
+        .error { color: #e74c3c; }
+        input[type="file"] { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Photo Upload Flow Test</h1>
+    <p>This page tests the complete photo upload flow from frontend to backend to database.</p>
+
+    <div class="test-section">
+        <h3>📁 Step 1: Select Test Image</h3>
+        <input type="file" id="testPhoto" accept="image/*">
+        <p id="fileInfo"></p>
+    </div>
+
+    <div class="test-section">
+        <h3>🔐 Step 2: Authentication (Required for upload)</h3>
+        <button onclick="checkAuth()">Check Auth Status</button>
+        <p id="authStatus"></p>
+    </div>
+
+    <div class="test-section">
+        <h3>📤 Step 3: Upload Photo</h3>
+        <button onclick="uploadPhoto()" id="uploadBtn" disabled>Upload Photo</button>
+        <div id="uploadResult" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🛒 Step 4: Add to Cart with Photo</h3>
+        <select id="productSelect">
+            <option value="">Select a product...</option>
+        </select>
+        <button onclick="addToCartWithPhoto()" id="cartBtn" disabled>Add to Cart</button>
+        <div id="cartResult" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📦 Step 5: Verify Cart Data</h3>
+        <button onclick="verifyCartData()">Check Cart</button>
+        <div id="cartVerification" class="log"></div>
+    </div>
+
+    <script>
+        let uploadedPhotoData = null;
+        let authToken = localStorage.getItem('token');
+
+        // File selection handler
+        document.getElementById('testPhoto').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('fileInfo').innerHTML = `
+                    <strong>Selected:</strong> ${file.name}<br>
+                    <strong>Size:</strong> ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
+                    <strong>Type:</strong> ${file.type}
+                `;
+                document.getElementById('uploadBtn').disabled = !authToken;
+            }
+        });
+
+        async function checkAuth() {
+            const status = document.getElementById('authStatus');
+            
+            if (!authToken) {
+                status.innerHTML = '<span class="error">❌ No auth token found. Please login first.</span>';
+                return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:5000/api/cart', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (response.ok) {
+                    status.innerHTML = '<span class="success">✅ Authentication valid</span>';
+                    loadProducts();
+                } else {
+                    status.innerHTML = '<span class="error">❌ Auth token invalid. Please re-login.</span>';
+                    authToken = null;
+                }
+            } catch (error) {
+                status.innerHTML = `<span class="error">❌ Auth check failed: ${error.message}</span>`;
+            }
+        }
+
+        async function loadProducts() {
+            try {
+                const response = await fetch('http://localhost:5000/api/products');
+                const data = await response.json();
+                
+                const select = document.getElementById('productSelect');
+                select.innerHTML = '<option value="">Select a product...</option>';
+                
+                if (data.success && data.products) {
+                    data.products.slice(0, 5).forEach(product => {
+                        const option = document.createElement('option');
+                        option.value = product._id;
+                        option.textContent = `${product.name} - ₹${product.price}`;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load products:', error);
+            }
+        }
+
+        async function uploadPhoto() {
+            const fileInput = document.getElementById('testPhoto');
+            const resultDiv = document.getElementById('uploadResult');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                resultDiv.innerHTML = '<span class="error">Please select a file first</span>';
+                return;
+            }
+
+            resultDiv.innerHTML = 'Uploading photo...';
+
+            try {
+                // Step 1: Upload photo to backend
+                const formData = new FormData();
+                formData.append('photo', file);
+
+                const uploadResponse = await fetch('http://localhost:5000/api/customer/upload-photo', {
+                    method: 'POST',
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
+                    body: formData
+                });
+
+                const uploadResult = await uploadResponse.json();
+
+                if (!uploadResponse.ok || !uploadResult.success) {
+                    throw new Error(uploadResult.message || 'Upload failed');
+                }
+
+                // Step 2: Prepare photo data structure
+                uploadedPhotoData = {
+                    filePath: uploadResult.filePath,
+                    image: `http://localhost:5000${uploadResult.filePath}`,
+                    name: uploadResult.originalName,
+                    size: uploadResult.size,
+                    type: file.type,
+                    uploadedAt: new Date().toISOString()
+                };
+
+                resultDiv.innerHTML = `<span class="success">✅ Photo uploaded successfully!</span>
+File Path: ${uploadResult.filePath}
+Original Name: ${uploadResult.originalName}
+Size: ${(uploadResult.size / 1024 / 1024).toFixed(2)} MB
+
+Photo Data Structure:
+${JSON.stringify(uploadedPhotoData, null, 2)}`;
+
+                document.getElementById('cartBtn').disabled = !document.getElementById('productSelect').value;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Upload failed: ${error.message}</span>`;
+            }
+        }
+
+        async function addToCartWithPhoto() {
+            const resultDiv = document.getElementById('cartResult');
+            const productId = document.getElementById('productSelect').value;
+
+            if (!productId) {
+                resultDiv.innerHTML = '<span class="error">Please select a product</span>';
+                return;
+            }
+
+            if (!uploadedPhotoData) {
+                resultDiv.innerHTML = '<span class="error">Please upload a photo first</span>';
+                return;
+            }
+
+            resultDiv.innerHTML = 'Adding to cart with photo...';
+
+            try {
+                const response = await fetch('http://localhost:5000/api/cart/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        productId: productId,
+                        quantity: 1,
+                        specialRequest: 'Test photo upload - ' + new Date().toLocaleString(),
+                        customPhoto: uploadedPhotoData
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.message || 'Failed to add to cart');
+                }
+
+                resultDiv.innerHTML = `<span class="success">✅ Added to cart successfully!</span>
+Total items in cart: ${result.totalItems}
+
+Cart Response:
+${JSON.stringify(result, null, 2)}`;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Add to cart failed: ${error.message}</span>`;
+            }
+        }
+
+        async function verifyCartData() {
+            const resultDiv = document.getElementById('cartVerification');
+            resultDiv.innerHTML = 'Checking cart data...';
+
+            try {
+                const response = await fetch('http://localhost:5000/api/cart', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch cart');
+                }
+
+                let output = `<span class="success">✅ Cart data retrieved</span>\nTotal items: ${result.items.length}\n\n`;
+
+                result.items.forEach((item, index) => {
+                    output += `Item ${index + 1}: ${item.product?.name || 'Unknown'}\n`;
+                    
+                    if (item.customPhoto) {
+                        output += `  📷 Custom Photo:\n`;
+                        output += `    - File Path: ${item.customPhoto.filePath || 'NULL'}\n`;
+                        output += `    - Image URL: ${item.customPhoto.image ? item.customPhoto.image.substring(0, 50) + '...' : 'NULL'}\n`;
+                        output += `    - Name: ${item.customPhoto.name || 'NULL'}\n`;
+                        output += `    - Size: ${item.customPhoto.size || 'NULL'}\n`;
+                        output += `    - Type: ${item.customPhoto.type || 'NULL'}\n`;
+                    } else {
+                        output += `  ❌ No custom photo data\n`;
+                    }
+                    output += '\n';
+                });
+
+                resultDiv.innerHTML = output;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Verification failed: ${error.message}</span>`;
+            }
+        }
+
+        // Initialize
+        checkAuth();
+    </script>
+</body>
+</html>

@@ -14,6 +14,7 @@ export default function Profile() {
       })
         .then((res) => res.json())
         .then((data) => {
+          // Profile endpoint returns user data directly
           setFormData(data);
           setUser(data);
         })
@@ -38,7 +39,10 @@ export default function Profile() {
 
       const data = await res.json();
       if (res.ok) {
-        setUser(data.user);
+        // Update both formData and user context
+        const updatedUser = data.user || data;
+        setFormData(updatedUser);
+        setUser(updatedUser);
         setEditing(false);
         alert("Profile updated successfully!");
       } else {

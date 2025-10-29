@@ -54,7 +54,9 @@ export default function Cart() {
         quantity: item.quantity || 1,
         isCustom: false,
         specialRequest: item.specialRequest,
-        designDataURL: item.product?.designDataURL
+        designDataURL: item.product?.designDataURL,
+        customPhoto: item.customPhoto,
+        customPhotos: item.customPhotos || []
       };
     }
   };
@@ -78,10 +80,36 @@ export default function Cart() {
   };
 
   // ✅ Enhanced remove function
-  const handleRemove = (item) => {
-    const itemData = getItemData(item);
-    removeFromCart(itemData.id, itemData.isCustom);
-  };
+ // ✅ Enhanced remove function with loading state in Cart.jsx
+const handleRemove = async (item) => {
+  const itemData = getItemData(item);
+  
+  console.log("🗑️ Cart.jsx: Starting remove for:", {
+    name: itemData.name,
+    id: itemData.id,
+    isCustom: itemData.isCustom,
+    itemStructure: {
+      _id: item._id,
+      cartItemId: item.cartItemId,
+      productId: item.product?._id,
+      isLocal: item.isLocal,
+      isTemporary: item.isTemporary
+    }
+  });
+  
+  // Show loading state for this specific item
+  const startTime = Date.now();
+  
+  try {
+    await removeFromCart(itemData.id, itemData.isCustom);
+    const endTime = Date.now();
+    console.log(`✅ Remove completed in ${endTime - startTime}ms`);
+  } catch (error) {
+    console.error("❌ Remove failed in Cart.jsx:", error);
+    alert("Failed to remove item. Please try again.");
+  }
+};
+
 
   // ✅ Enhanced quantity update
   const handleQuantityChange = (item, newQuantity) => {
@@ -187,6 +215,95 @@ export default function Cart() {
                         <p className="special-request-text">"{itemData.specialRequest.trim()}"</p>
                       </div>
                     )}
+                    
+                    {/* ✅ Multiple Photos Display */}
+                    {itemData.customPhotos && itemData.customPhotos.length > 0 && (
+                      <div className="custom-photos-container">
+                        <strong className="custom-photos-label">
+                          📸 Reference Photos ({itemData.customPhotos.length}):
+                        </strong>
+                        <div className="custom-photos-gallery">
+                          {itemData.customPhotos.map((photo, photoIndex) => {
+                            // ✅ Helper function to get proper photo URL
+                            const getPhotoUrl = (photo) => {
+                              if (photo.filePath) {
+                                return `http://localhost:5000${photo.filePath}`;
+                              }
+                              if (photo.image && photo.image.startsWith('data:')) {
+                                return photo.image; // Base64 data
+                              }
+                              if (photo.image && photo.image.startsWith('http')) {
+                                return photo.image; // Full URL
+                              }
+                              if (photo.image && photo.image.startsWith('/uploads')) {
+                                return `http://localhost:5000${photo.image}`;
+                              }
+                              return photo.image || photo.preview || 'https://via.placeholder.com/150?text=No+Image';
+                            };
+                            
+                            const photoUrl = getPhotoUrl(photo);
+                            
+                            return (
+                            <div key={photoIndex} className="custom-photo-item">
+                              <div className="photo-order-indicator">{photo.order || photoIndex + 1}</div>
+                              <img 
+                                src={photoUrl} 
+                                alt={`Reference photo ${photoIndex + 1}`}
+                                className="custom-photo-thumbnail"
+                                onClick={() => window.open(photoUrl, '_blank')}
+                                title="Click to view full size"
+                                onError={(e) => {
+                                  e.target.src = "https://via.placeholder.com/150?text=Photo+Error";
+                                }}
+                              />
+                              <div className="custom-photo-info">
+                                <span className="photo-filename">
+                                  {photo.name && photo.name.length > 12 
+                                    ? photo.name.substring(0, 12) + '...' 
+                                    : photo.name || `Photo ${photoIndex + 1}`}
+                                </span>
+                                <span className="photo-size">
+                                  {photo.size ? (photo.size / 1024 / 1024).toFixed(1) + ' MB' : ''}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* ✅ Backward compatibility - Single Photo Display */}
+                    {(!itemData.customPhotos || itemData.customPhotos.length === 0) && itemData.customPhoto && (
+                      <div className="custom-photo-container">
+                        <strong className="custom-photo-label">📷 Reference Photo:</strong>
+                        <div className="custom-photo-preview">
+                          <img 
+                            src={itemData.customPhoto.filePath ? `http://localhost:5000${itemData.customPhoto.filePath}` : 
+                                 (itemData.customPhoto.image?.startsWith('data:') ? itemData.customPhoto.image : 
+                                 (itemData.customPhoto.image?.startsWith('/uploads') ? `http://localhost:5000${itemData.customPhoto.image}` : 
+                                 itemData.customPhoto.image))} 
+                            alt="Reference photo" 
+                            className="custom-photo-thumbnail"
+                            onClick={() => {
+                              const photoUrl = itemData.customPhoto.filePath ? `http://localhost:5000${itemData.customPhoto.filePath}` : 
+                                               (itemData.customPhoto.image?.startsWith('data:') ? itemData.customPhoto.image : 
+                                               (itemData.customPhoto.image?.startsWith('/uploads') ? `http://localhost:5000${itemData.customPhoto.image}` : 
+                                               itemData.customPhoto.image));
+                              window.open(photoUrl, '_blank');
+                            }}
+                            title="Click to view full size"
+                            onError={(e) => {
+                              e.target.src = "https://via.placeholder.com/150?text=Photo+Error";
+                            }}
+                          />
+                          <div className="custom-photo-info">
+                            <span className="photo-filename">{itemData.customPhoto.name}</span>
+                            <span className="photo-size">{(itemData.customPhoto.size / 1024 / 1024).toFixed(2)} MB</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* ✅ Quantity Controls */}
@@ -251,12 +368,13 @@ export default function Cart() {
                 Continue Shopping
               </button>
               <button
-                onClick={() => navigate("/checkout")}
-                className="checkout-button"
-                disabled={cart.length === 0}
-              >
-                Proceed to Checkout
-              </button>
+  onClick={() => navigate("/checkout")}
+  className="checkout-button"
+  disabled={cart.length === 0 || loading}
+>
+  {loading ? "Processing..." : "Proceed to Checkout"}
+</button>
+
             </div>
           </div>
         </div>

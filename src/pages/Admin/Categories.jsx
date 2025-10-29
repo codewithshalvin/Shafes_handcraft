@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Search, Edit, Trash2, Plus, X, Eye } from "lucide-react";
-import "./categories.css"; // custom styles
+import "./Categories.css"; // custom styles
 
 export default function AdminCategories() {
   const [categories, setCategories] = useState([]);
@@ -94,10 +94,7 @@ export default function AdminCategories() {
 
   return (
     <div className="admin-page">
-      <div className="admin-header">
-        <h1>Categories Management</h1>
-        <p>Manage your product categories efficiently</p>
-      </div>
+      
 
       {message && <div className="alert">{message}</div>}
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { FaUser, FaLock } from "react-icons/fa";
+import GoogleLoginButton from "../components/GoogleLoginButton";
 import "./Auth.css";
 
 const Auth = () => {
@@ -21,8 +22,8 @@ const Auth = () => {
     try {
       const endpoint =
         selectedOption === "admin"
-          ? "http://localhost:5000/admin/login"
-          : "http://localhost:5000/login";
+          ? "http://localhost:5000/api/admin/login"
+          : "http://localhost:5000/api/users/login";
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -34,12 +35,13 @@ const Auth = () => {
 
       if (res.ok) {
         if (selectedOption === "admin") {
-          // For admin, store the token correctly
-          login(
-            { email: data.admin.email, name: data.admin.name, id: data.admin.id, role: "admin" },
-            data.token
-          );
-          navigate("/admin/dashboard");
+          // For admin, store data in admin-specific localStorage keys
+          localStorage.setItem("adminToken", data.token);
+          localStorage.setItem("isAdmin", "true");
+          localStorage.setItem("adminInfo", JSON.stringify(data.admin));
+          
+          console.log('✅ Admin login successful, redirecting to admin panel...');
+          navigate("/admin");
         } else {
           // For user, store BOTH user info and JWT token
           login(
@@ -69,13 +71,46 @@ const Auth = () => {
     }
   };
 
+  // Handle Google login success
+  const handleGoogleSuccess = (user) => {
+    console.log('✅ Google login successful, redirecting...');
+    
+    // Navigate based on user role (Google users are typically regular users)
+    if (user.role === "admin") {
+      navigate("/admin/dashboard");
+    } else {
+      navigate("/profile");
+    }
+  };
+
+  // Handle Google login error
+  const handleGoogleError = (error) => {
+    setError(error);
+  };
+
   return (
     <div className="auth-page">
       <div className="auth-card">
         <h2 className="auth-title">Welcome Back</h2>
-        <p className="subtitle">Login to your account</p>
+        <p className="subtitle">
+          {selectedOption === "admin" ? "Admin Panel Access" : "Login to your account"}
+        </p>
 
         {error && <div className="error-box">{error}</div>}
+
+        {/* Google Login Section - Only show for user login */}
+        {selectedOption === "user" && (
+          <div className="google-login-section">
+            <GoogleLoginButton 
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+            />
+            
+            <div className="divider">
+              <span>or continue with email</span>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleLogin} className="auth-form">
           <div className="input-group">
@@ -101,14 +136,18 @@ const Auth = () => {
           </div>
 
           <div className="input-group">
-            <FaLock className="icon" />
+            <FaUser className="icon" />
             <select
               value={selectedOption}
-              onChange={(e) => setSelectedOption(e.target.value)}
+              onChange={(e) => {
+                setSelectedOption(e.target.value);
+                setError(""); // Clear error when switching options
+              }}
               required
+              className="role-selector"
             >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
+              <option value="user">🛍️ Customer Login</option>
+              <option value="admin">👑 Admin Access</option>
             </select>
           </div>
 
@@ -118,7 +157,7 @@ const Auth = () => {
         </form>
 
         <p className="footer-text">
-          Don’t have an account?{" "}
+          Don't have an account?{" "}
           <Link to="/signup" className="text-blue-600 hover:underline">
             Sign up
           </Link>

@@ -114,3 +114,407 @@
 .live-customize:hover {
   background-color: #45a049;
 }
+/* Add to ProductDetails.css */
+.product-details-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.product-details-container {
+  /* Your existing styles */
+}
+
+/* Make sure the recently viewed section has proper spacing */
+.product-details-container + .recently-viewed-section {
+  margin-top: 4rem;
+}
+
+/* Photo Upload Section Styles */
+.photo-upload-section {
+  margin-top: 1.5rem;
+}
+
+.photo-upload-section label {
+  font-weight: bold;
+  color: #333;
+  display: block;
+  margin-bottom: 0.8rem;
+}
+
+.photo-upload-container {
+  width: 100%;
+}
+
+.photo-upload-area {
+  border: 2px dashed #ccc;
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  background-color: #fafafa;
+}
+
+.photo-upload-area:hover {
+  border-color: #ff6347;
+  background-color: #fff;
+}
+
+.photo-upload-button {
+  cursor: pointer;
+  display: block;
+  color: #666;
+  font-size: 1rem;
+}
+
+.photo-upload-button:hover {
+  color: #ff6347;
+}
+
+.upload-icon {
+  display: block;
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.photo-upload-button small {
+  display: block;
+  color: #999;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+}
+
+.photo-preview-container {
+  position: relative;
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  padding: 1rem;
+  background-color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.photo-preview {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
+.photo-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.photo-name {
+  font-weight: 500;
+  color: #333;
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.photo-size {
+  color: #666;
+  font-size: 0.8rem;
+}
+
+.remove-photo-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background-color: #ff4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.remove-photo-btn:hover {
+  background-color: #cc0000;
+}
+
+.photo-upload-note {
+  display: block;
+  color: #666;
+  font-style: italic;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+/* Photo Gallery Styles for Multiple Images */
+.photo-gallery {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+}
+
+.gallery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.gallery-header span {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.gallery-header small {
+  color: #666;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.photo-item {
+  position: relative;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: grab;
+  user-select: none;
+}
+
+.photo-item:hover {
+  border-color: #ff6347;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 99, 71, 0.2);
+}
+
+.photo-item.dragging {
+  opacity: 0.7;
+  transform: rotate(5deg) scale(1.05);
+  cursor: grabbing;
+  z-index: 1000;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.photo-order-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: #ff6347;
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: bold;
+  z-index: 2;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.photo-thumbnail {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-overlay {
+  padding: 0.5rem;
+  background: white;
+}
+
+.photo-info {
+  margin-bottom: 0.5rem;
+}
+
+.photo-info .photo-name {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 0.2rem;
+  line-height: 1.2;
+}
+
+.photo-info .photo-size {
+  font-size: 0.7rem;
+  color: #666;
+}
+
+.photo-actions {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.move-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.move-btn:hover {
+  background: #0056b3;
+}
+
+.move-btn.move-up {
+  background: #28a745;
+}
+
+.move-btn.move-up:hover {
+  background: #1e7e34;
+}
+
+.move-btn.move-down {
+  background: #ffc107;
+  color: #333;
+}
+
+.move-btn.move-down:hover {
+  background: #e0a800;
+}
+
+.photo-item .remove-photo-btn {
+  position: static;
+  background: #dc3545;
+  width: 20px;
+  height: 20px;
+  font-size: 0.7rem;
+  margin-left: auto;
+}
+
+.photo-item .remove-photo-btn:hover {
+  background: #c82333;
+}
+
+.drag-handle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: #999;
+  font-size: 1rem;
+  cursor: grab;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  line-height: 1;
+  user-select: none;
+}
+
+.drag-handle:hover {
+  color: #666;
+  background: rgba(255, 255, 255, 1);
+}
+
+.photo-item:active .drag-handle {
+  cursor: grabbing;
+}
+
+/* Drag and Drop Visual States */
+.photo-item[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* Enhanced photo upload area for multiple files */
+.photo-upload-area input[multiple] + label {
+  position: relative;
+}
+
+.photo-upload-area input[multiple] + label::after {
+  content: "📁 Multiple files supported";
+  display: block;
+  font-size: 0.7rem;
+  color: #999;
+  margin-top: 0.25rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .photo-upload-area {
+    padding: 1.5rem;
+  }
+  
+  .photo-preview-container {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .photo-preview {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .remove-photo-btn {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin-top: 0.5rem;
+  }
+  
+  .photo-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+  }
+  
+  .photo-thumbnail {
+    height: 80px;
+  }
+  
+  .gallery-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .photo-actions {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .photo-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .photo-thumbnail {
+    height: 70px;
+  }
+  
+  .photo-order-badge {
+    width: 20px;
+    height: 20px;
+    font-size: 0.7rem;
+  }
+}
